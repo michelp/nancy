@@ -64,8 +64,8 @@ sshdo s3cmd sync s3://p-dumps/dev.imgdata.ru/queries.sql ./ # TODO: parametrize!
 sshdo psql -U postgres -c "create tablespace bigspace location '/postgresql/bigspace';"
 sshdo psql -U postgres -c "alter database test set tablespace bigspace;"
 
-sshdo psql -U postgres -c "select set_config('autovacuum', 'off', false);"
-sshdo psql -U postgres -c "select pg_reload_conf();"
+sshdo sh -c "prtinf \"\\nautovacuum = off\\n\" >> /etc/postgresql/$PG_VERSION/main/postgresql.conf"
+sshdo /etc/init.d/postgresql restart
 
 sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablespaces /postgresql/dump
 #sshdo bash -c "zcat prod.201805150111.dump.gz | psql --set ON_ERROR_STOP=on -U postgres test" # TODO: parametrize!
@@ -73,8 +73,8 @@ sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablesp
 sshdo psql -U postgres test -c 'refresh materialized view a__news_daily_90days_denominated;' # remove me later
 
 sshdo vacuumdb -U postgres test -j 10 --analyze
-sshdo psql -U postgres -c "select set_config('autovacuum', 'on', false);"
-sshdo psql -U postgres -c "select pg_reload_conf();"
+sshdo sh -c "prtinf \"\\nautovacuum = off\\n\" >> /etc/postgresql/$PG_VERSION/main/postgresql.conf"
+sshdo /etc/init.d/postgresql restart
 
 sshdo bash -c "psql -U postgres test -f ./queries.sql"
 
