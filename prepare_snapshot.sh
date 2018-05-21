@@ -64,7 +64,7 @@ sshdo s3cmd sync s3://p-dumps/dev.imgdata.ru/queries.sql ./ # TODO: parametrize!
 sshdo psql -U postgres -c "create tablespace bigspace location '/postgresql/bigspace';"
 sshdo psql -U postgres -c "alter database test set tablespace bigspace;"
 
-sshdo psql -u postgres -c "select set_config('autovacuum', 'off'', false);"
+sshdo psql -u postgres -c "select set_config('autovacuum', 'off', false);"
 sshdo psql -u postgres -c "select pg_reload_conf();"
 
 sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablespaces /postgresql/dump
@@ -73,6 +73,8 @@ sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablesp
 sshdo psql -U postgres test -c 'refresh materialized view a__news_daily_90days_denominated;' # remove me later
 
 sshdo vacuumdb -U postgres test -j 10 --analyze
+sshdo psql -u postgres -c "select set_config('autovacuum', 'on', false);"
+sshdo psql -u postgres -c "select pg_reload_conf();"
 
 sshdo bash -c "psql -U postgres test -f ./queries.sql"
 
