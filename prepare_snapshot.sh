@@ -4,8 +4,8 @@ PROJECT="${PROJECT:-postila_ru}"
 CURRENT_TS=$(date +%Y%m%d_%H%M%S_%Z)
 DOCKER_MACHINE="${DOCKER_MACHINE:-nancy-$PROJECT-$CURRENT_TS}"
 DOCKER_MACHINE="${DOCKER_MACHINE//_/-}"
-EC2_TYPE="${EC2_TYPE:-m5.large}"
-EC2_PRICE="${EC2_PRICE:-0.0376}"
+EC2_TYPE="${EC2_TYPE:-i3.large}"
+EC2_PRICE="${EC2_PRICE:-0.0.087}"
 EC2_KEY_PAIR=${EC2_KEY_PAIR:-awskey}
 EC2_KEY_PATH=${EC2_KEY_PATH:-~/.ssh/awskey.pem}
 S3_BUCKET="${S3_BUCKET:-p-dumps}"
@@ -64,7 +64,7 @@ sshdo s3cmd sync s3://p-dumps/dev.imgdata.ru/queries.sql ./ # TODO: parametrize!
 sshdo psql -U postgres -c "create tablespace bigspace location '/postgresql/bigspace';"
 sshdo psql -U postgres -c "alter database test set tablespace bigspace;"
 
-sshdo "pg_restore -U postgres -d test -j4 --no-owner --no-privileges --no-tablespaces /postgresql/dump"
+sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablespaces /postgresql/dump
 #sshdo bash -c "zcat prod.201805150111.dump.gz | psql --set ON_ERROR_STOP=on -U postgres test" # TODO: parametrize!
 
 sshdo psql -U postgres test -c 'refresh materialized view a__news_daily_90days_denominated;' # remove me later
