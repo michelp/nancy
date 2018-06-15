@@ -1,11 +1,11 @@
 #!/bin/bash
-PG_VERSION="${PG_VERSION:-10}"
+PG_VERSION="${PG_VERSION:-9.6}"
 PROJECT="${PROJECT:-postila_ru}"
 CURRENT_TS=$(date +%Y%m%d_%H%M%S_%Z)
 DOCKER_MACHINE="${DOCKER_MACHINE:-nancy-$PROJECT-$CURRENT_TS}"
 DOCKER_MACHINE="${DOCKER_MACHINE//_/-}"
 EC2_TYPE="${EC2_TYPE:-i3.large}"
-EC2_PRICE="${EC2_PRICE:-0.0087}"
+EC2_PRICE="${EC2_PRICE:-0.087}"
 EC2_KEY_PAIR=${EC2_KEY_PAIR:-awskey}
 EC2_KEY_PATH=${EC2_KEY_PATH:-~/.ssh/awskey.pem}
 S3_BUCKET="${S3_BUCKET:-p-dumps}"
@@ -17,9 +17,10 @@ set -ueox pipefail # to debug
 
 docker-machine create --driver=amazonec2 --amazonec2-request-spot-instance \
   --amazonec2-keypair-name="$EC2_KEY_PAIR" --amazonec2-ssh-keypath="$EC2_KEY_PATH" \
-  --amazonec2-block-duration-minutes 180 --amazonec2-zone f \
+  --amazonec2-zone f \
   --amazonec2-instance-type=$EC2_TYPE --amazonec2-spot-price=$EC2_PRICE $DOCKER_MACHINE
 #  --amazonec2-root-size 1000
+  #--amazonec2-block-duration-minutes 180 
 
 eval $(docker-machine env $DOCKER_MACHINE)
 
@@ -58,7 +59,8 @@ sshdo sh -c "mkdir /postgresql/dump && chmod a+w /postgresql/dump"
 sshdo sh -c "mkdir /postgresql/bigspace && chmod a+w /postgresql/bigspace"
 sshdo chown -R postgres:postgres /postgresql
 #sshdo s3cmd sync s3://p-dumps/postila_ru.dump/prod.201805150111.dump.gz ./ # TODO: parametrize!
-sshdo aws s3 sync s3://postgres-misc/postila_prod/201805151715 /postgresql/dump
+#sshdo aws s3 sync s3://postgres-misc/postila_prod/201805151715 /postgresql/dump
+sshdo aws s3 cp s3://postgres-misc/postila_prod/mta4.kidms.ru-postila_ru-201805230111.dump.gz /postgresql/dump/prod.dump.gz
 sshdo s3cmd sync s3://p-dumps/dev.imgdata.ru/queries.sql ./ # TODO: parametrize!
 
 sshdo psql -U postgres -c "create tablespace bigspace location '/postgresql/bigspace';"
@@ -67,8 +69,8 @@ sshdo psql -U postgres -c "alter database test set tablespace bigspace;"
 sshdo sh -c "printf \"\\nautovacuum = off\\n\" >> /etc/postgresql/$PG_VERSION/main/postgresql.conf"
 sshdo /etc/init.d/postgresql restart
 
-sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablespaces /postgresql/dump
-#sshdo bash -c "zcat prod.201805150111.dump.gz | psql --set ON_ERROR_STOP=on -U postgres test" # TODO: parametrize!
+#sshdo pg_restore -U postgres -d test -j1 --no-owner --no-privileges --no-tablespaces /postgresql/dump
+sshdo bash -c "zcat /postgresql/dump/prod.dump.gz | psql -U postgres test" # TODO: parametrize!
 
 sshdo psql -U postgres test -c 'refresh materialized view a__news_daily_90days_denominated;' # remove me later
 
