@@ -1,0 +1,75 @@
+под рутом создаем запись о репозитории постгреса, апдейтим индексы и ставим постгрес 9.6
+
+echo "deb http://apt.postgresql.org/pub/repos/apt jessie-pgdg main" >/etc/apt/sources.list.d/postgresql.list
+apt-get update
+apt-get -t jessie-pgdg install postgresql-9.6 postgresql-9.6-plsh postgresql-9.6-plv8 postgresql-9.6-repack postgresql-9.6-rum postgresql-client-9.6 postgresql-contrib-9.6 postgresql-plpython-9.6 postgresql-plpython3-9.6
+
+скачиваем wal-g, распаковываем в /usr/loca/bin/
+wget -c https://github.com/wal-g/wal-g/releases/download/v0.1.10/wal-g.linux-amd64.tar.gz && tar zxvf wal-g.linux-amd64.tar.gz && mv wal-g /usr/local/bin/
+
+подготавливаем инфраструктуру для запуска wal-g
+apt-get install daemontools
+mkdir -p /etc/wal-g.d/env && cd /etc/wal-g.d/env
+
+echo "****" > AWS_ACCESS_KEY_ID
+echo "http://*.*.*.*:9000" > AWS_ENDPOINT
+echo "true" > AWS_S3_FORCE_PATH_STYLE
+echo "****+" > AWS_SECRET_ACCESS_KEY
+echo "" > PGHOST
+echo "" > PGPASSWORD
+echo "5432" > PGPORT
+echo "postgres" > PGUSER
+echo "s3://pgbackup" > WALE_S3_PREFIX
+echo "3" > WALG_DELTA_MAX_STEPS
+echo "LATEST" > WALG_DELTA_ORIGIN
+
+ставим s3cmd версии повыше, из stable версия слишком древняя, не работает
+apt-get -t unstable install s3cmd
+s3cmd --version
+(должно вывести s3cmd version 1.6.1 or 2.0.1)
+
+
+выключаем постгрес и переключаемся под postgres
+service postgresql@9.6-main stop
+su - postgres
+
+заполняем .s3cfg данными для работы с S3 стореджем с бэкапами
+echo 'host_base=*.*.*.*:9000
+host_bucket = *.*.*.*:9000
+bucket_location = us-east-1
+use_https = False
+# Setup access keys
+access_key = ***
+secret_key = ***
+# Enable S3 v4 signature APIs
+signature_v2 = False' > .s3cfg
+
+
+проверяем что s3 виден
+s3cmd ls s3://pgbackup
+                       DIR   s3://pgbackup/basebackups_005/
+                       DIR   s3://pgbackup/wal_005/
+
+проверяем что wal-g видит на S3 бэкапы
+envdir /etc/wal-g.d/env /usr/local/bin/wal-g backup-list
+BUCKET: pgbackup
+SERVER: 
+name                                                     last_modified        wal_segment_backup_start
+base_000000010000468100000050                            2018-06-16T23:50:08Z 000000010000468100000050
+base_00000001000046840000002A_D_000000010000468100000050 2018-06-17T09:12:45Z 00000001000046840000002A
+base_000000010000468B00000068_D_00000001000046840000002A 2018-06-18T09:14:27Z 000000010000468B00000068
+
+удаляем имеющийся $data каталог, перед восстановлением из бэкапа
+rm -rf /var/lib/postgresql/9.6/main
+
+восстанавливаем базис до последнего состояния из всех имеющихся FULL+INC
+envdir /etc/wal-g.d/env /usr/local/bin/wal-g backup-fetch /var/lib/postgresql/9.6/main LATEST
+
+докатываемся wal-ами до последнего состояния, создаем /var/lib/postgresql/9.6/main/recovery.conf и стартуем базу
+restore_command = '/usr/bin/envdir /etc/wal-g.d/env /usr/local/bin/wal-g wal-fetch %f %p'
+
+под рутом
+# service postgresql@9.6-main start
+ждем когда база накатится, переименовываем/убираем затем /var/lib/postgresql/9.6/main/recovery.conf
+
+все!
