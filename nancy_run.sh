@@ -965,8 +965,8 @@ echo "$(date "+%Y-%m-%d %H:%M:%S"): Prepare JSON log..."
 docker_exec bash -c "/root/pgbadger/pgbadger \
   -j $(cat /proc/cpuinfo | grep processor | wc -l) \
   --prefix '%t [%p]: [%l-1] db=%d,user=%u (%a,%h)' /var/log/postgresql/* -f stderr \
-  -o $MACHINE_HOME/$ARTIFACTS_FILENAME.json"
-  #2> >(grep -v "install the Text::CSV_XS" >&2)
+  -o $MACHINE_HOME/$ARTIFACTS_FILENAME.json" \
+  2> >(grep -v "install the Text::CSV_XS" >&2)
 
 docker_exec bash -c "gzip -c $logpath > $MACHINE_HOME/$ARTIFACTS_FILENAME.log.gz"
 echo "$(date "+%Y-%m-%d %H:%M:%S"): Save artifcats..."
